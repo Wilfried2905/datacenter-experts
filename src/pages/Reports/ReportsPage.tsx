@@ -1,202 +1,133 @@
-import React from 'react';
-import { Box, Button, Card, CardContent, Typography, Snackbar, Alert, CircularProgress } from '@mui/material';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  Grid,
+  Alert
+} from '@mui/material';
 import {
   Description as FileTextIcon,
-  Assignment as ClipboardListIcon,
-  Search as SearchIcon,
-  ContentPaste as ClipboardIcon,
-  Settings as SettingsIcon,
-  ArrowBack as ArrowBackIcon
+  Download as DownloadIcon
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { handleDocumentGeneration } from '../../utils/documentGenerator';
+import { generateReport } from '../../utils/reportGenerator';
+import { standardsEvaluator } from '../../utils/standardsEvaluator';
 
 const ReportsPage = () => {
-  const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = React.useState(false);
-  const [snackbar, setSnackbar] = React.useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error'
+  const { responses } = location.state || {};
+  const [clientInfo, setClientInfo] = useState({
+    name: '',
+    location: '',
+    date: new Date().toISOString().split('T')[0]
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerateReport = async (type: string) => {
+  const handleGenerateReport = async () => {
+    if (!clientInfo.name || !clientInfo.location) {
+      setError("Veuillez remplir toutes les informations client");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
     try {
-      const mockData = {
-        clientInfo: {
-          companyName: "Entreprise Test",
-          representativeName: "John Doe",
-          phone: "+225 0123456789",
-          email: "john.doe@example.com"
-        },
-        confidentialityPolicy: "Les informations contenues dans ce document sont confidentielles...",
-        rooms: [
-          {
-            type: "Salle Serveurs",
-            length: 10,
-            width: 8,
-            height: 3,
-            equipment: [
-              { name: "Racks", quantity: 10 },
-              { name: "Climatiseurs", quantity: 2 }
-            ]
-          }
-        ],
-        questionnaire: {
-          "Q1": { answer: "Oui", score: 5 },
-          "Q2": { answer: "Non", score: 0 },
-          "Q3": { answer: "Partiel", score: 3 }
-        },
-        recommendations: {
-          "Refroidissement": [
-            "Installer une unité de climatisation redondante",
-            "Optimiser la disposition des racks"
-          ],
-          "Sécurité": [
-            "Mettre à niveau le système de contrôle d'accès",
-            "Installer des caméras supplémentaires"
-          ]
-        },
-        bom: [
-          { name: "Climatiseur de précision", quantity: 1, specs: "30kW" },
-          { name: "Contrôleur d'accès", quantity: 2, specs: "Biométrique" }
-        ],
-        planning: "Planning détaillé des travaux...",
-        reference: `REF-${new Date().getTime()}`
-      };
-
-      let documentType = '';
-      switch (type) {
-        case 'technical':
-          documentType = 'offreTechnique';
-          break;
-        case 'specifications':
-          documentType = 'cahierCharges';
-          break;
-        case 'survey':
-          documentType = 'rapportSurvey';
-          break;
-        case 'audit':
-          documentType = 'rapportAudit';
-          break;
-        case 'other':
-          documentType = 'autresServices';
-          break;
-      }
-
-      await handleDocumentGeneration(documentType, {
-        ...mockData,
-        ...location.state
-      });
+      const evaluation = standardsEvaluator.evaluateDatacenter(responses || {});
       
-      setSnackbar({
-        open: true,
-        message: 'Document généré avec succès',
-        severity: 'success'
+      await generateReport({
+        clientInfo,
+        evaluation
       });
-    } catch (error) {
-      console.error('Error generating document:', error);
-      setSnackbar({
-        open: true,
-        message: 'Erreur lors de la génération du document',
-        severity: 'error'
-      });
-    } finally {
+
+      setLoading(false);
+    } catch (err) {
+      setError("Une erreur est survenue lors de la génération du rapport");
       setLoading(false);
     }
   };
 
-  const reports = [
-    {
-      type: 'technical',
-      label: 'Générer une Offre Technique',
-      icon: FileTextIcon
-    },
-    {
-      type: 'specifications',
-      label: 'Générer un Cahier des Charges',
-      icon: ClipboardListIcon
-    },
-    {
-      type: 'survey',
-      label: 'Générer un Rapport de Survey',
-      icon: SearchIcon
-    },
-    {
-      type: 'audit',
-      label: 'Générer un Rapport d\'Audit',
-      icon: ClipboardIcon
-    },
-    {
-      type: 'other',
-      label: 'Générer un Rapport Autres Services',
-      icon: SettingsIcon
-    }
-  ];
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
   return (
     <Box sx={{ maxWidth: 'lg', mx: 'auto', p: 4 }}>
-      <Card>
+      <Typography variant="h4" gutterBottom>
+        Génération de Rapport
+      </Typography>
+
+      <Card sx={{ mb: 4 }}>
         <CardContent>
-          <Typography variant="h4" sx={{ mb: 4 }}>
-            Génération des Documents
+          <Typography variant="h6" gutterBottom>
+            Informations Client
           </Typography>
-          
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {reports.map(({ type, label, icon: Icon }) => (
-              <Button
-                key={type}
-                variant="outlined"
-                onClick={() => handleGenerateReport(type)}
-                startIcon={<Icon />}
-                disabled={loading}
-                sx={{
-                  py: 3,
-                  justifyContent: 'flex-start',
-                  fontSize: '1.1rem'
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} sx={{ mr: 1 }} />
-                ) : null}
-                {label}
-              </Button>
-            ))}
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Nom du Client"
+                value={clientInfo.name}
+                onChange={(e) => setClientInfo(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Localisation"
+                value={clientInfo.location}
+                onChange={(e) => setClientInfo(prev => ({ ...prev, location: e.target.value }))}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date"
+                value={clientInfo.date}
+                onChange={(e) => setClientInfo(prev => ({ ...prev, date: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
+
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<FileTextIcon />}
+              onClick={handleGenerateReport}
+              disabled={loading}
+            >
+              {loading ? 'Génération...' : 'Générer le Rapport'}
+            </Button>
           </Box>
         </CardContent>
       </Card>
 
-      <Box sx={{ mt: 4 }}>
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(-1)}
-          disabled={loading}
-        >
-          Retour
-        </Button>
-      </Box>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>
+        Le rapport généré inclura :
+        <ul>
+          <li>Évaluation détaillée selon les normes TIA-942 et UPTIME</li>
+          <li>Scores et métriques de performance</li>
+          <li>Recommandations priorisées</li>
+          <li>Estimations de coûts et délais</li>
+        </ul>
+      </Typography>
     </Box>
   );
 };

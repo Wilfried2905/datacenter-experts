@@ -3,218 +3,196 @@ import { saveAs } from 'file-saver';
 import { completeDocumentTemplates } from './documentTemplates';
 
 interface ClientInfo {
-  companyName: string;
-  representativeName: string;
+  company: string;
+  representative: string;
   phone: string;
   email: string;
 }
 
-interface Equipment {
-  name: string;
-  quantity: number;
-}
-
 interface Room {
-  type: string;
-  length: number;
-  width: number;
-  height: number;
-  equipment: Equipment[];
+  name: string;
+  dimensions: string;
+  equipment: Array<{
+    name: string;
+    quantity: number;
+  }>;
 }
 
 interface MappedData {
-  informations_client?: {
-    company: string;
-    representative: string;
-    phone: string;
-    email: string;
-  };
-  politique_confidentialite?: string;
-  salles_visitees?: {
+  informations_client: ClientInfo;
+  politique_confidentialite: string;
+  salles_visitees: Room[];
+  resultats_questionnaire: Record<string, any>;
+  recommandations: Record<string, string[]>;
+  bom: Array<{
     name: string;
-    dimensions: string;
-    equipment: Equipment[];
-  }[];
-  resultats_questionnaire?: any;
-  recommandations?: any;
-  bom?: any;
-  planning?: any;
+    quantity: number;
+    specs: string;
+  }>;
+  planning: string;
   [key: string]: any;
 }
 
-const formatContent = (type: string, data: any): Paragraph[] | Table[] => {
-  switch(type) {
-    case 'informations_client':
-      return [
-        new Paragraph({
-          children: [
-            new TextRun({ text: 'Entreprise: ', bold: true }),
-            new TextRun(data.company || 'N/A')
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: 'Représentant: ', bold: true }),
-            new TextRun(data.representative || 'N/A')
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: 'Téléphone: ', bold: true }),
-            new TextRun(data.phone || 'N/A')
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: 'Email: ', bold: true }),
-            new TextRun(data.email || 'N/A')
-          ]
-        })
-      ];
-    
-    case 'salles_visitees':
-      if (!Array.isArray(data)) return [new Paragraph('Aucune salle visitée')];
-      
-      return data.map(room => [
-        new Paragraph({
-          text: `Salle: ${room.name}`,
-          heading: HeadingLevel.HEADING_3
-        }),
-        new Paragraph(`Dimensions: ${room.dimensions}`),
-        new Table({
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph('Équipement')] }),
-                new TableCell({ children: [new Paragraph('Quantité')] })
-              ]
-            }),
-            ...room.equipment.map(eq => 
-              new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph(eq.name)] }),
-                  new TableCell({ children: [new Paragraph(eq.quantity.toString())] })
-                ]
-              })
-            )
-          ]
-        })
-      ]).flat();
-
-    case 'resultats_questionnaire':
-      if (!data) return [new Paragraph('Aucun résultat disponible')];
-      
-      return [
-        new Table({
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph('Question')] }),
-                new TableCell({ children: [new Paragraph('Réponse')] }),
-                new TableCell({ children: [new Paragraph('Score')] })
-              ]
-            }),
-            ...Object.entries(data).map(([question, response]: [string, any]) => 
-              new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph(question)] }),
-                  new TableCell({ children: [new Paragraph(response.answer || 'N/A')] }),
-                  new TableCell({ children: [new Paragraph(response.score?.toString() || 'N/A')] })
-                ]
-              })
-            )
-          ]
-        })
-      ];
-
-    case 'recommandations':
-      if (!data) return [new Paragraph('Aucune recommandation disponible')];
-      
-      return Object.entries(data).map(([category, recommendations]: [string, any]) => [
-        new Paragraph({
-          text: category,
-          heading: HeadingLevel.HEADING_3
-        }),
-        ...(Array.isArray(recommendations) ? recommendations : [recommendations]).map(rec =>
-          new Paragraph({
-            bullet: {
-              level: 0
-            },
-            text: typeof rec === 'string' ? rec : JSON.stringify(rec)
-          })
-        )
-      ]).flat();
-
-    case 'bom':
-      if (!data) return [new Paragraph('Aucun BOM disponible')];
-      
-      return [
-        new Table({
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph('Item')] }),
-                new TableCell({ children: [new Paragraph('Quantité')] }),
-                new TableCell({ children: [new Paragraph('Spécifications')] })
-              ]
-            }),
-            ...data.map((item: any) => 
-              new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph(item.name || 'N/A')] }),
-                  new TableCell({ children: [new Paragraph(item.quantity?.toString() || 'N/A')] }),
-                  new TableCell({ children: [new Paragraph(item.specs || 'N/A')] })
-                ]
-              })
-            )
-          ]
-        })
-      ];
-
-    default:
-      return [new Paragraph(typeof data === 'string' ? data : JSON.stringify(data, null, 2))];
-  }
+const generateClientSection = (clientInfo: ClientInfo) => {
+  return [
+    new Paragraph({
+      text: "Informations Client",
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 400, after: 200 }
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Entreprise: ", bold: true }),
+        new TextRun(clientInfo.company)
+      ]
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Représentant: ", bold: true }),
+        new TextRun(clientInfo.representative)
+      ]
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Téléphone: ", bold: true }),
+        new TextRun(clientInfo.phone)
+      ]
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Email: ", bold: true }),
+        new TextRun(clientInfo.email)
+      ]
+    })
+  ];
 };
 
-const generateSection = (section: any, data: MappedData) => {
-  const content: (Paragraph | Table)[] = [];
-  
-  // Ajouter titre de section
-  content.push(
+const generateConfidentialitySection = (policy: string) => {
+  return [
     new Paragraph({
-      text: section.title,
+      text: "Politique de Confidentialité",
       heading: HeadingLevel.HEADING_1,
-      spacing: {
-        before: 400,
-        after: 200
-      }
+      spacing: { before: 400, after: 200 }
+    }),
+    new Paragraph({
+      text: policy
     })
-  );
+  ];
+};
 
-  // Générer contenu pour chaque sous-section
-  section.subsections.forEach((subsection: string) => {
-    const subsectionKey = subsection.toLowerCase().replace(/\s/g, '_');
-    const subsectionData = data[subsectionKey];
-    
-    content.push(
+const generateRoomsSection = (rooms: Room[]) => {
+  const paragraphs = [
+    new Paragraph({
+      text: "Salles Visitées",
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 400, after: 200 }
+    })
+  ];
+
+  rooms.forEach(room => {
+    paragraphs.push(
       new Paragraph({
-        text: subsection,
+        text: room.name,
         heading: HeadingLevel.HEADING_2,
-        spacing: {
-          before: 300,
-          after: 150
-        }
+        spacing: { before: 200, after: 100 }
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Dimensions: ", bold: true }),
+          new TextRun(room.dimensions)
+        ]
       })
     );
 
-    const formattedContent = formatContent(subsectionKey, subsectionData);
-    content.push(...formattedContent);
+    // Table des équipements
+    if (room.equipment.length > 0) {
+      const table = new Table({
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph("Équipement")] }),
+              new TableCell({ children: [new Paragraph("Quantité")] })
+            ]
+          }),
+          ...room.equipment.map(eq => new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(eq.name)] }),
+              new TableCell({ children: [new Paragraph(eq.quantity.toString())] })
+            ]
+          }))
+        ]
+      });
+      paragraphs.push(table);
+    }
   });
 
-  return content;
+  return paragraphs;
 };
 
-const handleDocumentGeneration = async (type: string, data: any) => {
+const generateRecommendationsSection = (recommendations: Record<string, string[]>) => {
+  const paragraphs = [
+    new Paragraph({
+      text: "Recommandations",
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 400, after: 200 }
+    })
+  ];
+
+  Object.entries(recommendations).forEach(([category, recs]) => {
+    paragraphs.push(
+      new Paragraph({
+        text: category,
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 200, after: 100 }
+      })
+    );
+
+    recs.forEach(rec => {
+      paragraphs.push(
+        new Paragraph({
+          text: `• ${rec}`,
+          spacing: { before: 100 }
+        })
+      );
+    });
+  });
+
+  return paragraphs;
+};
+
+const generateBOMSection = (bom: Array<{ name: string; quantity: number; specs: string }>) => {
+  const paragraphs = [
+    new Paragraph({
+      text: "Liste du Matériel (BOM)",
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 400, after: 200 }
+    })
+  ];
+
+  const table = new Table({
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph("Équipement")] }),
+          new TableCell({ children: [new Paragraph("Quantité")] }),
+          new TableCell({ children: [new Paragraph("Spécifications")] })
+        ]
+      }),
+      ...bom.map(item => new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph(item.name)] }),
+          new TableCell({ children: [new Paragraph(item.quantity.toString())] }),
+          new TableCell({ children: [new Paragraph(item.specs)] })
+        ]
+      }))
+    ]
+  });
+
+  paragraphs.push(table);
+  return paragraphs;
+};
+
+export const handleDocumentGeneration = async (type: string, data: any) => {
   try {
     const template = completeDocumentTemplates[type];
     if (!template) {
@@ -229,16 +207,12 @@ const handleDocumentGeneration = async (type: string, data: any) => {
         phone: data?.clientInfo?.phone || '',
         email: data?.clientInfo?.email || ''
       },
-      politique_confidentialite: data?.confidentialityPolicy,
-      salles_visitees: data?.rooms?.map((room: Room) => ({
-        name: room.type,
-        dimensions: `${room.length}x${room.width}x${room.height}`,
-        equipment: room.equipment
-      })),
-      resultats_questionnaire: data?.questionnaire,
-      recommandations: data?.recommendations,
-      bom: data?.bom,
-      planning: data?.planning,
+      politique_confidentialite: data?.confidentialityPolicy || 'Les informations contenues dans ce document sont confidentielles...',
+      salles_visitees: data?.rooms || [],
+      resultats_questionnaire: data?.responses || {},
+      recommandations: data?.recommendations || {},
+      bom: data?.bom || [],
+      planning: data?.planning || '',
       ...data
     };
 
@@ -246,17 +220,12 @@ const handleDocumentGeneration = async (type: string, data: any) => {
       sections: [{
         properties: {},
         children: [
-          // En-tête
           new Paragraph({
             text: template.title,
             heading: HeadingLevel.TITLE,
-            spacing: {
-              before: 400,
-              after: 300
-            }
+            spacing: { before: 400, after: 300 }
           }),
           
-          // Date et référence
           new Paragraph({
             children: [
               new TextRun({ text: 'Date: ', bold: true }),
@@ -264,16 +233,14 @@ const handleDocumentGeneration = async (type: string, data: any) => {
               new TextRun({ text: '\nRéf: ', bold: true }),
               new TextRun(data?.reference || `REF-${new Date().getTime()}`)
             ],
-            spacing: {
-              before: 200,
-              after: 400
-            }
+            spacing: { before: 200, after: 400 }
           }),
 
-          // Sections du document
-          ...template.sections.flatMap(section => 
-            generateSection(section, mappedData)
-          )
+          ...generateClientSection(mappedData.informations_client),
+          ...generateConfidentialitySection(mappedData.politique_confidentialite),
+          ...generateRoomsSection(mappedData.salles_visitees),
+          ...generateRecommendationsSection(mappedData.recommandations),
+          ...generateBOMSection(mappedData.bom)
         ]
       }]
     });
@@ -286,5 +253,3 @@ const handleDocumentGeneration = async (type: string, data: any) => {
     throw new Error('Erreur lors de la génération du document');
   }
 };
-
-export { handleDocumentGeneration };
